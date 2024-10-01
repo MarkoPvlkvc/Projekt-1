@@ -50,7 +50,7 @@ async function generateTicket(
 }
 
 interface Ticket {
-  uuid: string;
+  id: string;
   vatin: number;
   firstName: string;
   lastName: string;
@@ -61,7 +61,7 @@ async function generateQRCode(generatedTicket: Ticket) {
   const baseUrl = "https://projekt-1-markopvlkvcs-projects.vercel.app/";
 
   const QRCodeData = JSON.stringify({
-    url: `${baseUrl}/${generatedTicket.uuid}`,
+    url: `${baseUrl}/${generatedTicket.id}`,
   });
 
   const QRCodeImage = await QRCode.toDataURL(QRCodeData);

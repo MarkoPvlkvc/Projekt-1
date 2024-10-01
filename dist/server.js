@@ -54,7 +54,7 @@ function generateQRCode(generatedTicket) {
     return __awaiter(this, void 0, void 0, function* () {
         const baseUrl = "https://projekt-1-markopvlkvcs-projects.vercel.app/";
         const QRCodeData = JSON.stringify({
-            url: `${baseUrl}/${generatedTicket.uuid}`,
+            url: `${baseUrl}/${generatedTicket.id}`,
         });
         const QRCodeImage = yield qrcode_1.default.toDataURL(QRCodeData);
         console.log("QR code generated successfully:");
