@@ -61,7 +61,7 @@ function generateQRCode(generatedTicket) {
         return QRCodeImage;
     });
 }
-app.get("/generate-ticket", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.get("/api/tickets/generate", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { vatin, firstName, lastName } = req.body;
     if (!vatin || !firstName || !lastName) {
         res.status(400).send("Missing parameters in request body.");

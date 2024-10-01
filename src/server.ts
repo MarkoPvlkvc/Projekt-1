@@ -71,7 +71,7 @@ async function generateQRCode(generatedTicket: Ticket) {
   return QRCodeImage;
 }
 
-app.get("/generate-ticket", async (req, res) => {
+app.get("/api/tickets/generate", async (req, res) => {
   const { vatin, firstName, lastName } = req.body;
 
   if (!vatin || !firstName || !lastName) {

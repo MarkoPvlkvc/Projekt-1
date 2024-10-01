@@ -18,7 +18,7 @@
       async function fetchTicketInfo() {
         try {
           const response = await fetch(
-            "api/tickets/" + window.location.pathname.split("/")[1]
+            "api/tickets/info/" + window.location.pathname.split("/")[1]
           );
           if (!response.ok) {
             throw new Error("Failed to fetch ticket info.");
