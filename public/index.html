@@ -14,9 +14,31 @@
       rel="stylesheet" />
   </head>
   <body>
+    <script type="module" lang="ts">
+      async function fetchTicketCount() {
+        try {
+          const response = await fetch("api/tickets/count");
+          if (!response.ok) {
+            throw new Error("Failed to fetch ticket count.");
+          }
+
+          const data = await response.json();
+          const countElement = document.getElementById("count");
+
+          if (countElement) {
+            countElement.textContent = data.toString();
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      window.onload = fetchTicketCount;
+    </script>
+
     <div class="container">
       <p style="font-size: 32px">Broj dosad generiranih ulaznica</p>
-      <p style="font-size: 48px; margin-top: 16px">0</p>
+      <p id="count" style="font-size: 48px; margin-top: 16px">-</p>
     </div>
   </body>
 </html>

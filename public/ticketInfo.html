@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ticket Info</title>
+
+    <link rel="stylesheet" href="index.css" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap"
+      rel="stylesheet" />
+  </head>
+  <body>
+    <script type="module" lang="ts">
+      async function fetchTicketInfo() {
+        try {
+          const response = await fetch(
+            "api/tickets/" + window.location.pathname.split("/")[1]
+          );
+          if (!response.ok) {
+            throw new Error("Failed to fetch ticket info.");
+          }
+
+          const data = await response.json();
+          const vatinElement = document.getElementById("vatin");
+          const firstNameElement = document.getElementById("firstName");
+          const lastNameElement = document.getElementById("lastName");
+          const createdAtElement = document.getElementById("createdAt");
+
+          if (vatinElement) {
+            vatinElement.textContent = data.vatin;
+          }
+
+          if (firstNameElement) {
+            firstNameElement.textContent = data.firstname;
+          }
+
+          if (lastNameElement) {
+            lastNameElement.textContent = data.lastname;
+          }
+
+          if (createdAtElement) {
+            createdAtElement.textContent = new Date(
+              data.createdat
+            ).toLocaleDateString("hr-HR");
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      window.onload = fetchTicketInfo;
+    </script>
+
+    <div class="container">
+      <p style="font-size: 32px">Informacije o ulaznici</p>
+      <div style="margin-top: 48px; font-size: 24px">
+        <p style="color: gray">Vatin:</p>
+        <p id="vatin">-</p>
+        <p style="color: gray; margin-top: 16px">Ime:</p>
+        <p id="firstName">-</p>
+        <p style="color: gray; margin-top: 16px">Prezime:</p>
+        <p id="lastName">-</p>
+        <p style="color: gray; margin-top: 16px">Datum nastanka:</p>
+        <p id="createdAt">-</p>
+      </div>
+    </div>
+  </body>
+</html>
