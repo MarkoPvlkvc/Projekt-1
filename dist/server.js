@@ -36,7 +36,7 @@ const config = {
     authRequired: false,
     auth0Logout: true,
     secret: process.env.AUTH0_API_OIDC_SECRET,
-    baseURL: "http://localhost:3000",
+    baseURL: "https://projekt-1-markopvlkvcs-projects.vercel.app",
     clientID: "O31X4XFmVwQvazPC8UyBoUr10xCPoOLZ",
     issuerBaseURL: "https://dev-g2pnzcqpdat4wh2s.eu.auth0.com",
 };
@@ -114,18 +114,6 @@ app.get("/api/tickets/generate", checkJwt, (req, res) => __awaiter(void 0, void 
     catch (error) {
         res.status(500).send("Error querying database.");
     }
-    // pristupna točka mora koristiti autorizacijski mehanizam OAuth2 Client Credentials (machine-to-machine)
-    // nije vezan za konkretnog korisnika, već za pojedinu aplikaciju.
-    // (https://auth0.com/blog/using-m2m-authorization)
-    // (https://www.rfc-editor.org/rfc/rfc6749#section-1.3.1)
-    // url koji sadrži identifikator ulaznice prikazuje podatke ulaznice (vatin/OIB, ime, prezime i vrijeme nastanka ulaznice)
-    // pristup toj stranici imaju samo prijavljeni korisnici
-    // na stranici ispisati ime trenutno prijavljenog korisnika koristeći OpenId Connect protokol
-    /*
-    Upravljanje korisnicima odvija se korištenjem protokola OAuth2 i OpenId Connect (OIDC) i servisa Auth0.
-    Korisnike na servisu Auth0 možete dodati kroz opciju User management/Users na Auth0.
-    Za pohranu podataka koristiti PostgreSQL na Renderu ili neku drugu bazu podataka po izboru (npr. Firebase).
-  */
 }));
 app.get("/api/tickets/count", (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
