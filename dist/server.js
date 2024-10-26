@@ -17,6 +17,8 @@ const express_1 = __importDefault(require("express"));
 const postgres_1 = require("@vercel/postgres");
 const dotenv_1 = __importDefault(require("dotenv"));
 const qrcode_1 = __importDefault(require("qrcode"));
+const express_oauth2_jwt_bearer_1 = require("express-oauth2-jwt-bearer");
+const express_openid_connect_1 = require("express-openid-connect");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = 3000;
@@ -26,12 +28,36 @@ app.use(express_1.default.static(path_1.default.join(__dirname, "../public")));
 const pool = (0, postgres_1.createPool)({
     connectionString: process.env.POSTGRES_URL,
 });
-app.get("/:uuid", (req, res) => {
+const checkJwt = (0, express_oauth2_jwt_bearer_1.auth)({
+    audience: process.env.AUTH0_API_AUDIENCE,
+    issuerBaseURL: `https://${process.env.AUTH0_API_DOMAIN}/`,
+});
+const config = {
+    authRequired: false,
+    auth0Logout: true,
+    secret: process.env.AUTH0_API_OIDC_SECRET,
+    baseURL: "http://localhost:3000",
+    clientID: "O31X4XFmVwQvazPC8UyBoUr10xCPoOLZ",
+    issuerBaseURL: "https://dev-g2pnzcqpdat4wh2s.eu.auth0.com",
+};
+app.use((0, express_openid_connect_1.auth)(config));
+app.get("/:uuid", (0, express_openid_connect_1.requiresAuth)(), (req, res) => {
+    if (!req.oidc.isAuthenticated()) {
+        return;
+    }
     res.sendFile(path_1.default.join(__dirname, "../public/ticketInfo.html"));
 });
-app.get("/", (_req, res) => {
+app.get("/", (req, res) => {
     res.sendFile(path_1.default.join(__dirname, "../public/index.html"));
 });
+/* app.get("/callback", (req: Request, res: Response) => {
+  const state = req.query.state;
+
+  if (state) {
+    const redirectUrl = decodeURIComponent(state.toString());
+    return res.redirect(redirectUrl);
+  }
+}); */
 function generateTicket(vatin, firstName, lastName) {
     return __awaiter(this, void 0, void 0, function* () {
         let generatedTicket;
@@ -56,12 +82,12 @@ function generateQRCode(generatedTicket) {
         const QRCodeData = JSON.stringify({
             url: `${baseUrl}/${generatedTicket.id}`,
         });
-        const QRCodeImage = yield qrcode_1.default.toDataURL(QRCodeData);
+        const QRCodeImage = yield qrcode_1.default.toBuffer(QRCodeData);
         console.log("QR code generated successfully:");
         return QRCodeImage;
     });
 }
-app.get("/api/tickets/generate", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.get("/api/tickets/generate", checkJwt, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { vatin, firstName, lastName } = req.body;
     if (!vatin || !firstName || !lastName) {
         res.status(400).send("Missing parameters in request body.");
@@ -82,16 +108,12 @@ app.get("/api/tickets/generate", (req, res) => __awaiter(void 0, void 0, void 0,
             return;
         }
         const QRCodeImage = yield generateQRCode(generatedTicket);
-        res.status(200).json({
-            message: "Ticket generated successfully.",
-            QRCodeImage,
-        });
+        res.setHeader("Content-Type", "image/png");
+        res.status(200).send(QRCodeImage);
     }
     catch (error) {
         res.status(500).send("Error querying database.");
     }
-    // rezultat uspješnog poziva je QR kod koji sadrži url na stranici s UUID / identifikatorom ulaznice
-    // u urlu smije biti samo identifikator ulaznice
     // pristupna točka mora koristiti autorizacijski mehanizam OAuth2 Client Credentials (machine-to-machine)
     // nije vezan za konkretnog korisnika, već za pojedinu aplikaciju.
     // (https://auth0.com/blog/using-m2m-authorization)
@@ -100,10 +122,10 @@ app.get("/api/tickets/generate", (req, res) => __awaiter(void 0, void 0, void 0,
     // pristup toj stranici imaju samo prijavljeni korisnici
     // na stranici ispisati ime trenutno prijavljenog korisnika koristeći OpenId Connect protokol
     /*
-      Upravljanje korisnicima odvija se korištenjem protokola OAuth2 i OpenId Connect (OIDC) i servisa Auth0.
-      Korisnike na servisu Auth0 možete dodati kroz opciju User management/Users na Auth0.
-      Za pohranu podataka koristiti PostgreSQL na Renderu ili neku drugu bazu podataka po izboru (npr. Firebase).
-    */
+    Upravljanje korisnicima odvija se korištenjem protokola OAuth2 i OpenId Connect (OIDC) i servisa Auth0.
+    Korisnike na servisu Auth0 možete dodati kroz opciju User management/Users na Auth0.
+    Za pohranu podataka koristiti PostgreSQL na Renderu ili neku drugu bazu podataka po izboru (npr. Firebase).
+  */
 }));
 app.get("/api/tickets/count", (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -134,6 +156,16 @@ app.get("/api/tickets/:uuid", (req, res) => __awaiter(void 0, void 0, void 0, fu
         res.status(500).send("Error querying database.");
     }
 }));
+app.get("/api/user", (0, express_openid_connect_1.requiresAuth)(), (req, res) => {
+    var _a;
+    if (!req.oidc.isAuthenticated()) {
+        return;
+    }
+    const safeUserInfo = {
+        email: (_a = req.oidc.user) === null || _a === void 0 ? void 0 : _a.email,
+    };
+    res.json(safeUserInfo);
+});
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });

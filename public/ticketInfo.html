@@ -15,6 +15,30 @@
   </head>
   <body>
     <script type="module" lang="ts">
+      async function setup() {
+        await fetchTicketInfo();
+
+        await fetchUser();
+      }
+
+      async function fetchUser() {
+        try {
+          const response = await fetch("api/user");
+          if (!response.ok) {
+            throw new Error("Failed to fetch user info.");
+          }
+
+          const data = await response.json();
+
+          const emailElement = document.getElementById("user-email");
+          emailElement.innerText = data.email;
+
+          return user;
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
       async function fetchTicketInfo() {
         try {
           const response = await fetch(
@@ -52,7 +76,7 @@
         }
       }
 
-      window.onload = fetchTicketInfo;
+      window.onload = setup;
     </script>
 
     <div class="container">
@@ -66,6 +90,36 @@
         <p id="lastName" style="font-size: 28px">-</p>
         <p style="color: gray; margin-top: 16px">Datum nastanka:</p>
         <p id="createdAt" style="font-size: 28px">-</p>
+      </div>
+
+      <div
+        style="
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          width: fit-content;
+          position: absolute;
+          right: 24px;
+          top: 24px;
+        ">
+        <p id="user-email" style="width: fit-content; font-size: 20px">user</p>
+        <button
+          onclick="window.location.href = '/logout'"
+          style="
+            outline: transparent;
+            border: none;
+            padding: 6px 20px;
+            border-radius: 8px;
+            background-color: hsl(0, 0%, 95%);
+            color: hsl(0, 0%, 10%);
+            margin-top: 8px;
+            width: fit-content;
+            cursor: pointer;
+            font-size: 16px;
+          ">
+          Logout
+        </button>
       </div>
     </div>
   </body>

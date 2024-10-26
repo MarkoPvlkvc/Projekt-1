@@ -3,6 +3,8 @@ import express, { Request, Response } from "express";
 import { createPool } from "@vercel/postgres";
 import dotenv from "dotenv";
 import QRCode from "qrcode";
+import { auth, requiredScopes } from "express-oauth2-jwt-bearer";
+import { auth as authOIDC, requiresAuth } from "express-openid-connect";
 
 dotenv.config();
 const app = express();
@@ -17,13 +19,42 @@ const pool = createPool({
   connectionString: process.env.POSTGRES_URL,
 });
 
-app.get("/:uuid", (req: Request, res: Response) => {
+const checkJwt = auth({
+  audience: process.env.AUTH0_API_AUDIENCE,
+  issuerBaseURL: `https://${process.env.AUTH0_API_DOMAIN}/`,
+});
+
+const config = {
+  authRequired: false,
+  auth0Logout: true,
+  secret: process.env.AUTH0_API_OIDC_SECRET,
+  baseURL: "http://localhost:3000",
+  clientID: "O31X4XFmVwQvazPC8UyBoUr10xCPoOLZ",
+  issuerBaseURL: "https://dev-g2pnzcqpdat4wh2s.eu.auth0.com",
+};
+
+app.use(authOIDC(config));
+
+app.get("/:uuid", requiresAuth(), (req: Request, res: Response) => {
+  if (!req.oidc.isAuthenticated()) {
+    return;
+  }
+
   res.sendFile(path.join(__dirname, "../public/ticketInfo.html"));
 });
 
-app.get("/", (_req: Request, res: Response) => {
+app.get("/", (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, "../public/index.html"));
 });
+
+/* app.get("/callback", (req: Request, res: Response) => {
+  const state = req.query.state;
+
+  if (state) {
+    const redirectUrl = decodeURIComponent(state.toString());
+    return res.redirect(redirectUrl);
+  }
+}); */
 
 async function generateTicket(
   vatin: number,
@@ -64,70 +95,69 @@ async function generateQRCode(generatedTicket: Ticket) {
     url: `${baseUrl}/${generatedTicket.id}`,
   });
 
-  const QRCodeImage = await QRCode.toDataURL(QRCodeData);
+  const QRCodeImage = await QRCode.toBuffer(QRCodeData);
 
   console.log("QR code generated successfully:");
 
   return QRCodeImage;
 }
 
-app.get("/api/tickets/generate", async (req, res) => {
-  const { vatin, firstName, lastName } = req.body;
+app.get(
+  "/api/tickets/generate",
+  checkJwt,
+  async (req: Request, res: Response) => {
+    const { vatin, firstName, lastName } = req.body;
 
-  if (!vatin || !firstName || !lastName) {
-    res.status(400).send("Missing parameters in request body.");
-    return;
-  }
-
-  try {
-    const result =
-      await pool.sql`SELECT COUNT(*) FROM generatedtickets WHERE vatin = ${vatin}`;
-    const count = parseInt(result.rows[0].count);
-
-    if (count >= MAX_TICKETS_PER_OIB) {
-      res
-        .status(400)
-        .send(
-          `OIB has already been used to generate the maximum (${MAX_TICKETS_PER_OIB}) number of tickets.`
-        );
+    if (!vatin || !firstName || !lastName) {
+      res.status(400).send("Missing parameters in request body.");
       return;
     }
 
-    const generatedTicket = await generateTicket(vatin, firstName, lastName);
+    try {
+      const result =
+        await pool.sql`SELECT COUNT(*) FROM generatedtickets WHERE vatin = ${vatin}`;
+      const count = parseInt(result.rows[0].count);
 
-    if (!generatedTicket) {
-      res.status(500).send("Error generating ticket.");
-      return;
+      if (count >= MAX_TICKETS_PER_OIB) {
+        res
+          .status(400)
+          .send(
+            `OIB has already been used to generate the maximum (${MAX_TICKETS_PER_OIB}) number of tickets.`
+          );
+        return;
+      }
+
+      const generatedTicket = await generateTicket(vatin, firstName, lastName);
+
+      if (!generatedTicket) {
+        res.status(500).send("Error generating ticket.");
+        return;
+      }
+
+      const QRCodeImage = await generateQRCode(generatedTicket as Ticket);
+
+      res.setHeader("Content-Type", "image/png");
+      res.status(200).send(QRCodeImage);
+    } catch (error) {
+      res.status(500).send("Error querying database.");
     }
 
-    const QRCodeImage = await generateQRCode(generatedTicket as Ticket);
+    // pristupna točka mora koristiti autorizacijski mehanizam OAuth2 Client Credentials (machine-to-machine)
+    // nije vezan za konkretnog korisnika, već za pojedinu aplikaciju.
+    // (https://auth0.com/blog/using-m2m-authorization)
+    // (https://www.rfc-editor.org/rfc/rfc6749#section-1.3.1)
 
-    res.status(200).json({
-      message: "Ticket generated successfully.",
-      QRCodeImage,
-    });
-  } catch (error) {
-    res.status(500).send("Error querying database.");
-  }
+    // url koji sadrži identifikator ulaznice prikazuje podatke ulaznice (vatin/OIB, ime, prezime i vrijeme nastanka ulaznice)
+    // pristup toj stranici imaju samo prijavljeni korisnici
+    // na stranici ispisati ime trenutno prijavljenog korisnika koristeći OpenId Connect protokol
 
-  // rezultat uspješnog poziva je QR kod koji sadrži url na stranici s UUID / identifikatorom ulaznice
-  // u urlu smije biti samo identifikator ulaznice
-
-  // pristupna točka mora koristiti autorizacijski mehanizam OAuth2 Client Credentials (machine-to-machine)
-  // nije vezan za konkretnog korisnika, već za pojedinu aplikaciju.
-  // (https://auth0.com/blog/using-m2m-authorization)
-  // (https://www.rfc-editor.org/rfc/rfc6749#section-1.3.1)
-
-  // url koji sadrži identifikator ulaznice prikazuje podatke ulaznice (vatin/OIB, ime, prezime i vrijeme nastanka ulaznice)
-  // pristup toj stranici imaju samo prijavljeni korisnici
-  // na stranici ispisati ime trenutno prijavljenog korisnika koristeći OpenId Connect protokol
-
-  /*
+    /*
     Upravljanje korisnicima odvija se korištenjem protokola OAuth2 i OpenId Connect (OIDC) i servisa Auth0.
     Korisnike na servisu Auth0 možete dodati kroz opciju User management/Users na Auth0.
     Za pohranu podataka koristiti PostgreSQL na Renderu ili neku drugu bazu podataka po izboru (npr. Firebase).
   */
-});
+  }
+);
 
 app.get("/api/tickets/count", async (_req: Request, res: Response) => {
   try {
@@ -141,7 +171,7 @@ app.get("/api/tickets/count", async (_req: Request, res: Response) => {
   }
 });
 
-app.get("/api/tickets/:uuid", async (req, res) => {
+app.get("/api/tickets/:uuid", async (req: Request, res: Response) => {
   const { uuid } = req.params;
 
   try {
@@ -161,6 +191,18 @@ app.get("/api/tickets/:uuid", async (req, res) => {
     console.log("Error querying database:", error);
     res.status(500).send("Error querying database.");
   }
+});
+
+app.get("/api/user", requiresAuth(), (req: Request, res: Response) => {
+  if (!req.oidc.isAuthenticated()) {
+    return;
+  }
+
+  const safeUserInfo = {
+    email: req.oidc.user?.email,
+  };
+
+  res.json(safeUserInfo);
 });
 
 app.listen(PORT, () => {
